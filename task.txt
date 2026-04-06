@@ -1,0 +1,1 @@
+we need to know if gcp bucket have hash of content or not?
