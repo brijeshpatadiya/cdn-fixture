@@ -137,6 +137,9 @@ def main():
                     found_in_db += 1
                 else:
                     not_in_db += 1
+                # Also add original CSV value as fallback candidate
+                if gcp:
+                    all_candidates.add(gcp)
 
         short = csv_file.split("CREA-DESI_")[1].split("_2026")[0]
         csv_stats[csv_file] = {"found": found_in_db, "not_in_db": not_in_db, "empty": empty}
@@ -180,24 +183,27 @@ def main():
                 continue
 
             fname = extract_filename(gcp)
-            if not fname or fname not in db_map:
-                total_errors.append([csv_file, i + 2, gcp, "", "not_in_pimcore_db"])
-                errors += 1
-                continue
 
-            # Try each candidate (most recent first), first existing wins
+            # Try each DB candidate (most recent first), first existing wins
             resolved = None
-            for bp in db_map[fname]:
-                if bp in existing:
-                    resolved = bp
-                    break
+            if fname in db_map:
+                for bp in db_map[fname]:
+                    if bp in existing:
+                        resolved = bp
+                        break
+
+            # Fallback: try original CSV value directly
+            if not resolved and gcp in existing:
+                resolved = gcp
 
             if resolved:
                 row["gcp_cdn"] = resolved
                 transformed += 1
-            else:
-                # None exist in GCS — keep original, log error
+            elif fname in db_map:
                 total_errors.append([csv_file, i + 2, gcp, "|".join(db_map[fname][:3]), "not_in_gcs"])
+                errors += 1
+            else:
+                total_errors.append([csv_file, i + 2, gcp, "", "not_in_pimcore_db"])
                 errors += 1
 
         out_path = OUTPUT_DIR / csv_file
